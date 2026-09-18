@@ -1,0 +1,13 @@
+[
+  {
+    "id": "CERT-BDE2E63D",
+    "recipient": "Pranit Chendke",
+    "course": "Machine Learning",
+    "issuer": "AUTHORIZED ISSUING ORGANIZATION",
+    "signatory": "David Vance, CTO",
+    "issueDate": "2026-09-18",
+    "note": "for attending the webinar on",
+    "status": "VALID",
+    "createdTimestamp": "2026-09-18T06:36:00.277Z"
+  }
+]
