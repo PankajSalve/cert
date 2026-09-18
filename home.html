@@ -463,18 +463,21 @@
         // LOCAL STORAGE & STATE
         // ==========================================
         const STORAGE_KEY = 'certiverify_db_clean_v4';
+        const JSONBIN_BIN_ID = '6aace4c3ac6210605adb586f'; 
+        const JSONBIN_MASTER_KEY = '$2a$10$McSiJuH70Qf18mQKz9N5cO/LSjXwHL9FXz1cs8WHZWtu1tkHk6EVy';
+
         let activeCertificates = [];
         let isCustomIdMode = false;
 
         const DEFAULT_ISSUER = 'AUTHORIZED ISSUING ORGANIZATION';
 
-        const SAMPLE_CERTIFICATES = [        ];
+        const SAMPLE_CERTIFICATES = [];
 
         // ==========================================
         // INIT & ONLOAD
         // ==========================================
-        window.onload = function() {
-            loadCertificatesFromStorage();
+        window.onload = async function() {
+            await loadCertificatesFromStorage();
 
             // Check URL parameters for direct verification redirects
             const urlParams = new URLSearchParams(window.location.search);
@@ -489,51 +492,52 @@
             }
         };
 
-        function loadCertificatesFromStorage() {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                try {
-                    activeCertificates = JSON.parse(raw);
-                } catch (e) {
-                    activeCertificates = [...SAMPLE_CERTIFICATES];
+        async function loadCertificatesFromStorage() {
+            try {
+                // Fetch latest cloud database first
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+                    headers: { 'X-Master-Key': JSONBIN_MASTER_KEY }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    activeCertificates = Array.isArray(data.record) ? data.record : [];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCertificates));
+                } else {
+                    throw new Error('Could not load from cloud');
                 }
-            } else {
-                activeCertificates = [...SAMPLE_CERTIFICATES];
-                saveCertificatesToStorage();
+            } catch (err) {
+                console.warn('Falling back to local storage:', err);
+                const raw = localStorage.getItem(STORAGE_KEY);
+                activeCertificates = raw ? JSON.parse(raw) : [...SAMPLE_CERTIFICATES];
             }
             updateBadgeCount();
         }
 
-        function saveCertificatesToStorage() {
-            // Replace with your actual JSONBin details
-const JSONBIN_BIN_ID = '6aace4c3ac6210605adb586f'; 
-const JSONBIN_MASTER_KEY = '$2a$10$McSiJuH70Qf18mQKz9N5cO/LSjXwHL9FXz1cs8WHZWtu1tkHk6EVy'; 
+        async function saveCertificatesToStorage() {
+            // 1. Save locally as fallback
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCertificates));
+            updateBadgeCount();
 
-function saveCertificatesToStorage() {
-    // 1. Save locally as fallback
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCertificates));
-    updateBadgeCount();
+            // 2. Sync to JSONBin Cloud Database
+            try {
+                const putRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': JSONBIN_MASTER_KEY
+                    },
+                    body: JSON.stringify(activeCertificates)
+                });
 
-    // 2. Sync to JSONBin Cloud Database
-    fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_MASTER_KEY
-        },
-        body: JSON.stringify(activeCertificates)
-    })
-    .then(res => {
-        if (res.ok) {
-            showToast('Cloud database updated!', 'success');
-        } else {
-            showToast('Local saved, but cloud sync failed.', 'error');
-        }
-    })
-    .catch(err => {
-        console.error('Cloud Sync Error:', err);
-    });
-}
+                if (putRes.ok) {
+                    showToast('Cloud database updated successfully!', 'success');
+                } else {
+                    showToast('Local saved, but cloud sync failed.', 'error');
+                }
+            } catch (err) {
+                console.error('Cloud Sync Error:', err);
+                showToast('Offline mode: Saved locally only.', 'error');
+            }
         }
 
         function updateBadgeCount() {
@@ -632,7 +636,7 @@ function saveCertificatesToStorage() {
             updateLivePreview();
         }
 
-        function handleIssueFormSubmit(e) {
+        async function handleIssueFormSubmit(e) {
             e.preventDefault();
             const data = getFormData();
             data.createdTimestamp = new Date().toISOString();
@@ -644,8 +648,7 @@ function saveCertificatesToStorage() {
                 activeCertificates.unshift(data);
             }
 
-            saveCertificatesToStorage();
-            showToast(`Certificate ${data.id} successfully saved!`, 'success');
+            await saveCertificatesToStorage();
 
             if (!isCustomIdMode) {
                 document.getElementById('input-cert-id').value = generateUniqueCertId();
@@ -653,15 +656,13 @@ function saveCertificatesToStorage() {
             updateLivePreview();
         }
 
-       // Replace the old buildVerificationUrl function with this:
-function buildVerificationUrl(certId) {
-    const origin = window.location.origin;
-    const path = window.location.pathname;
-    const folder = path.substring(0, path.lastIndexOf('/'));
-    
-    // Generates link pointing directly to verify.html
-    return `${origin}${folder}/verify.html?certId=${encodeURIComponent(certId)}`;
-}
+        function buildVerificationUrl(certId) {
+            const origin = window.location.origin;
+            const path = window.location.pathname;
+            const folder = path.substring(0, path.lastIndexOf('/'));
+            
+            return `${origin}${folder}/verify.html?certId=${encodeURIComponent(certId)}`;
+        }
 
         function copyGeneratedVerifyUrl() {
             const certId = document.getElementById('preview-cert-id').innerText;
@@ -685,17 +686,16 @@ function buildVerificationUrl(certId) {
             showToast('Rendering crisp vector PDF...', 'info');
 
             try {
-                // Ensure custom Google Fonts finish layout calculation to avoid shift/overlap
                 if (document.fonts && document.fonts.ready) {
                     await document.fonts.ready;
                 }
 
                 const canvas = await html2canvas(previewEl, {
-                    scale: 3, // High DPI for crisp typography without pixelation
+                    scale: 3,
                     useCORS: true,
                     logging: false,
                     backgroundColor: '#ffffff',
-                    windowWidth: 1200 // Lock capture viewport size for static line-height rendering
+                    windowWidth: 1200
                 });
 
                 const imgData = canvas.toDataURL('image/png');
@@ -805,20 +805,20 @@ function buildVerificationUrl(certId) {
             });
         }
 
-        function toggleCertStatus(id) {
+        async function toggleCertStatus(id) {
             const cert = activeCertificates.find(c => c.id === id);
             if (cert) {
                 cert.status = cert.status === 'VALID' ? 'REVOKED' : 'VALID';
-                saveCertificatesToStorage();
+                await saveCertificatesToStorage();
                 renderManageTable();
                 showToast(`Certificate status updated to ${cert.status}`, 'info');
             }
         }
 
-        function deleteCert(id) {
+        async function deleteCert(id) {
             if (confirm(`Are you sure you want to delete ${id}?`)) {
                 activeCertificates = activeCertificates.filter(c => c.id !== id);
-                saveCertificatesToStorage();
+                await saveCertificatesToStorage();
                 renderManageTable();
                 showToast('Record deleted.', 'info');
             }
@@ -983,17 +983,17 @@ function buildVerificationUrl(certId) {
             showToast('Database exported successfully', 'success');
         }
 
-        function importCertificatesJSON(event) {
+        async function importCertificatesJSON(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
                     if (Array.isArray(imported)) {
                         activeCertificates = imported;
-                        saveCertificatesToStorage();
+                        await saveCertificatesToStorage();
                         renderManageTable();
                         showToast(`Imported ${imported.length} records!`, 'success');
                     }
@@ -1004,10 +1004,10 @@ function buildVerificationUrl(certId) {
             reader.readAsText(file);
         }
 
-        function clearAllCertificates() {
-            if (confirm('Clear all certificate records from local database?')) {
+        async function clearAllCertificates() {
+            if (confirm('Clear all certificate records from database?')) {
                 activeCertificates = [];
-                saveCertificatesToStorage();
+                await saveCertificatesToStorage();
                 renderManageTable();
                 showToast('All records cleared.', 'info');
             }
