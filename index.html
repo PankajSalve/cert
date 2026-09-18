@@ -598,7 +598,7 @@ function saveCertificatesToStorage() {
                 issuer: rawIssuer !== '' ? rawIssuer : DEFAULT_ISSUER,
                 signatory: document.getElementById('input-signatory').value.trim() || 'Salve P.V.',
                 issueDate: document.getElementById('input-date').value || new Date().toISOString().split('T')[0],
-                note: document.getElementById('input-note').value.trim() || 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.',
+                note: document.getElementById('input-note').value.trim() || 'for the participation in webinar on ',
                 status: 'VALID'
             };
         }
