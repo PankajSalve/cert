@@ -106,10 +106,7 @@
             }
         };
 
-        function getCertificatesFromStorage() {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : [];
-        }
+       getCertificatesFromStorage
 
         function handleManualVerifySubmit(e) {
             e.preventDefault();
