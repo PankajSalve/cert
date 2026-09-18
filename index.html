@@ -528,8 +528,35 @@
         }
 
         function saveCertificatesToStorage() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCertificates));
-            updateBadgeCount();
+            // Replace with your actual JSONBin details
+const JSONBIN_BIN_ID = '6aace4c3ac6210605adb586f'; 
+const JSONBIN_MASTER_KEY = '$2a$10$McSiJuH70Qf18mQKz9N5cO/LSjXwHL9FXz1cs8WHZWtu1tkHk6EVy'; 
+
+function saveCertificatesToStorage() {
+    // 1. Save locally as fallback
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCertificates));
+    updateBadgeCount();
+
+    // 2. Sync to JSONBin Cloud Database
+    fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_MASTER_KEY
+        },
+        body: JSON.stringify(activeCertificates)
+    })
+    .then(res => {
+        if (res.ok) {
+            showToast('Cloud database updated!', 'success');
+        } else {
+            showToast('Local saved, but cloud sync failed.', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Cloud Sync Error:', err);
+    });
+}
         }
 
         function updateBadgeCount() {
