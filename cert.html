@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CertiVerify IT - Precision Certificate System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & Space Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- html2canvas for rasterization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF for vector PDF exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        techblue: {
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        tech: ['Space Grotesk', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                        signature: ['Alex Brush', 'cursive'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Fixed Aspect Ratio Container (A4 Landscape aspect ratio 1.414 : 1) */
+        .cert-container-ratio {
+            width: 100%;
+            aspect-ratio: 1.414 / 1;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Pure Crisp Print & Canvas Background with Micro Tech Grid */
+        .cert-canvas-bg {
+            background-color: #ffffff;
+            background-image: 
+                radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
+                linear-gradient(to right, rgba(226, 232, 240, 0.5) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(226, 232, 240, 0.5) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+        }
+
+        /* Clean Double Outer Tech Border */
+        .cert-outer-border {
+            border: 4px solid #0f172a;
+            position: relative;
+        }
+
+        .cert-inner-border {
+            border: 1px solid #3b82f6;
+            margin: 8px;
+            height: calc(100% - 16px);
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        /* Corner Geometric Accents */
+        .corner-accent {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .corner-tl { top: -2px; left: -2px; border-top: 3px solid #1d4ed8; border-left: 3px solid #1d4ed8; }
+        .corner-tr { top: -2px; right: -2px; border-top: 3px solid #1d4ed8; border-right: 3px solid #1d4ed8; }
+        .corner-bl { bottom: -2px; left: -2px; border-bottom: 3px solid #1d4ed8; border-left: 3px solid #1d4ed8; }
+        .corner-br { bottom: -2px; right: -2px; border-bottom: 3px solid #1d4ed8; border-right: 3px solid #1d4ed8; }
+
+        /* Anti-Overlap Explicit Line Heights & Box Protection for HTML2Canvas */
+        .cert-text-block {
+            line-height: 1.25 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            word-break: break-word;
+        }
+
+        .cert-course-badge {
+            display: inline-block;
+            word-wrap: break-word;
+            max-width: 90%;
+            line-height: 1.3 !important;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #certificate-preview-container, #certificate-preview-container * { visibility: visible; }
+            #certificate-preview-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100vw;
+                height: 100vh;
+            }
+        }
+    </style>
+</head>
+<body class="bg-navy-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+    <!-- Navigation Header -->
+    <header class="bg-navy-900 border-b border-slate-800/80 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- App Logo -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('issue')">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-cyan-400 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-600/20">
+                        <i class="fa-solid fa-certificate"></i>
+                    </div>
+                    <div>
+                        <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent font-tech">CertiVerify IT</span>
+                        <span class="text-[10px] text-blue-400 font-mono tracking-wider block -mt-1 uppercase">Clean Credential Engine</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="flex space-x-1 sm:space-x-2 bg-navy-950 p-1 rounded-xl border border-slate-800">
+                    <button id="tab-issue-btn" onclick="switchTab('issue')" class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center space-x-2 bg-blue-600 text-white shadow-md shadow-blue-600/30">
+                        <i class="fa-solid fa-pen-to-square text-cyan-200"></i>
+                        <span class="hidden sm:inline">Issue Certificate</span>
+                    </button>
+                    <button id="tab-manage-btn" onclick="switchTab('manage')" class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center space-x-2">
+                        <i class="fa-solid fa-database"></i>
+                        <span class="hidden sm:inline">Manage Records</span>
+                        <span id="cert-count-badge" class="bg-slate-800 text-cyan-400 text-xs px-2 py-0.5 rounded-full border border-slate-700">0</span>
+                    </button>
+                    <button id="tab-verify-btn" onclick="switchTab('verify')" class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center space-x-2">
+                        <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+                        <span class="hidden sm:inline">Verify Portal</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ==================== TAB 1: ISSUE CERTIFICATE ==================== -->
+        <section id="tab-issue" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                <!-- Left Form Column -->
+                <div class="lg:col-span-5 bg-navy-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <h2 class="text-base font-bold text-slate-100 flex items-center gap-2 font-tech">
+                            <i class="fa-solid fa-sliders text-blue-400"></i> Certificate Parameters
+                        </h2>
+                        <button onclick="fillSampleData()" class="text-xs text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1.5 transition-all bg-blue-950/60 px-2.5 py-1 rounded-md border border-blue-800/60">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
+                        </button>
+                    </div>
+
+                    <form id="issue-form" onsubmit="handleIssueFormSubmit(event)" class="space-y-4 text-xs">
+                        
+                        <!-- Certificate ID -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center">
+                                <label class="font-semibold text-slate-400 uppercase tracking-wider text-[10px]">Certificate ID</label>
+                                <button type="button" onclick="toggleCustomId()" id="toggle-id-btn" class="text-[10px] text-blue-400 font-mono hover:underline">
+                                    Switch to Custom ID
+                                </button>
+                            </div>
+                            <input type="text" id="input-cert-id" readonly placeholder="Auto-generated (e.g. CERT-8F9A2B1C)"
+                                class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-cyan-400 font-mono font-semibold focus:outline-none focus:border-blue-500 transition-all cursor-not-allowed"
+                                oninput="updateLivePreview()">
+                        </div>
+
+                        <!-- Recipient Name -->
+                        <div>
+                            <label class="block font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Recipient Full Name *</label>
+                            <input type="text" id="input-recipient" required placeholder="e.g. Alex Mercer"
+                                class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
+                                oninput="updateLivePreview()">
+                        </div>
+
+                        <!-- Course Title -->
+                        <div>
+                            <label class="block font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Course / IT Skill Certification *</label>
+                            <input type="text" id="input-course" required placeholder="e.g. Full-Stack DevOps & Cloud Architecture"
+                                class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
+                                oninput="updateLivePreview()">
+                        </div>
+
+                        <!-- Optional Organization Field -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="font-semibold text-slate-400 uppercase tracking-wider text-[10px]">Organization / Institute</label>
+                                <span class="text-[10px] text-slate-500 font-mono">(Optional)</span>
+                            </div>
+                            <input type="text" id="input-issuer" placeholder="Leave empty for default: Authorized Issuing Organization"
+                                class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                                oninput="updateLivePreview()">
+                        </div>
+
+                        <!-- Dates & Signatory Row -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Issue Date *</label>
+                                <input type="date" id="input-date" required
+                                    class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500 transition-all font-mono"
+                                    onchange="updateLivePreview()">
+                            </div>
+                            <div>
+                                <label class="block font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Authorized Signatory</label>
+                                <input type="text" id="input-signatory" placeholder="e.g. David Vance, CTO"
+                                    class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500 transition-all"
+                                    oninput="updateLivePreview()">
+                            </div>
+                        </div>
+
+                        <!-- Note / Description -->
+                        <div>
+                            <label class="block font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Achievement Description</label>
+                            <textarea id="input-note" rows="2" placeholder="For demonstrating expertise in Kubernetes deployment, cloud security, and automated pipelines."
+                                class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-all text-xs"
+                                oninput="updateLivePreview()"></textarea>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="pt-3 flex flex-col sm:flex-row gap-2.5">
+                            <button type="submit" class="flex-1 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 text-xs">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Record
+                            </button>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="downloadCertificatePDF()" class="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-3 px-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs">
+                                    <i class="fa-solid fa-file-pdf text-rose-400"></i> Download PDF
+                                </button>
+                                <button type="button" onclick="downloadCertificatePNG()" class="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-3 px-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs">
+                                    <i class="fa-solid fa-file-image text-cyan-400"></i> PNG
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right Live Preview Column -->
+                <div class="lg:col-span-7 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 font-mono">
+                            <i class="fa-solid fa-desktop text-blue-400"></i> Clean Certificate Preview
+                        </span>
+                        <button onclick="copyGeneratedVerifyUrl()" class="text-xs bg-navy-900 hover:bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-1.5 transition-all shadow-sm">
+                            <i class="fa-regular fa-copy text-cyan-400"></i> Copy Verify Link
+                        </button>
+                    </div>
+
+                    <!-- CERTIFICATE CANVAS CONTAINER -->
+                    <div class="overflow-hidden rounded-2xl border border-slate-800 shadow-2xl bg-navy-900 p-2 sm:p-4">
+                        <div id="certificate-preview-container" class="cert-container-ratio cert-canvas-bg cert-outer-border text-slate-900 shadow-2xl rounded-sm select-none">
+                            <div class="cert-inner-border p-6 sm:p-8 flex flex-col justify-between h-full">
+                                
+                                <!-- Corner Accents -->
+                                <div class="corner-accent corner-tl"></div>
+                                <div class="corner-accent corner-tr"></div>
+                                <div class="corner-accent corner-bl"></div>
+                                <div class="corner-accent corner-br"></div>
+
+                                <!-- Certificate Top Header -->
+                                <div class="text-center space-y-1.5 relative z-10 pt-2">
+                                    <div class="flex items-center justify-center gap-2 mb-1">
+                                        <div class="w-6 h-6 rounded bg-navy-900 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                                            <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+                                        </div>
+                                        <span class="text-[11px] sm:text-xs font-extrabold tracking-widest text-navy-900 font-tech uppercase" id="preview-issuer">
+                                            AUTHORIZED ISSUING ORGANIZATION
+                                        </span>
+                                    </div>
+                                    <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-navy-900 font-tech uppercase cert-text-block">
+                                        Certificate of Completion
+                                    </h1>
+                                    <div class="w-20 h-0.5 bg-blue-600 mx-auto my-1"></div>
+                                    <p class="text-[9px] sm:text-[10px] text-blue-700 font-mono font-bold tracking-widest uppercase cert-text-block">
+                                        Verified IT & Technical Competency Credential
+                                    </p>
+                                </div>
+
+                                <!-- Certificate Middle Body -->
+                                <div class="text-center space-y-2.5 my-auto relative z-10 py-2">
+                                    <p class="text-[11px] sm:text-xs text-slate-500 font-sans italic cert-text-block">This is to officially certify that</p>
+                                    
+                                    <!-- Recipient Name -->
+                                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-blue-900 font-tech tracking-tight px-2 cert-text-block" id="preview-recipient">
+                                        Alex Mercer
+                                    </h2>
+
+                                    <p class="text-[10px] sm:text-xs text-slate-600 max-w-lg mx-auto leading-relaxed cert-text-block" id="preview-note">
+                                        has successfully passed all formal assessments, practical laboratories, and technical requirements for
+                                    </p>
+
+                                    <!-- Course Badge Box -->
+                                    <div class="py-1">
+                                        <div class="cert-course-badge bg-blue-50 border border-blue-200/90 rounded-lg px-6 py-2 shadow-sm">
+                                            <h3 class="text-xs sm:text-sm md:text-base font-extrabold text-blue-950 font-tech cert-text-block" id="preview-course">
+                                                Full-Stack DevOps & Cloud Architecture
+                                            </h3>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Certificate Bottom Footer (Centered Single Signature & Clean ID Details) -->
+                                <div class="grid grid-cols-3 items-end pt-3 border-t border-slate-200 relative z-10 pb-1">
+                                    
+                                    <!-- Left: Issue Date & Cert ID -->
+                                    <div class="text-left space-y-1">
+                                        <div class="text-[9px] font-mono text-slate-500">
+                                            ID: <span id="preview-cert-id" class="font-bold text-blue-900">CERT-PENDING</span>
+                                        </div>
+                                        <div class="text-[9px] font-mono text-slate-600">
+                                            Issued: <span id="preview-date" class="font-semibold text-slate-800">2026-09-18</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Center: Official Emblem -->
+                                    <div class="text-center">
+                                        <div class="w-11 h-11 sm:w-12 sm:h-12 mx-auto bg-navy-900 rounded-full border-2 border-blue-600 p-0.5 shadow-md flex items-center justify-center">
+                                            <div class="w-full h-full border border-dashed border-cyan-400/60 rounded-full flex flex-col items-center justify-center text-white">
+                                                <i class="fa-solid fa-certificate text-cyan-400 text-xs"></i>
+                                                <span class="text-[5px] font-mono font-bold uppercase tracking-wider text-slate-200">VERIFIED</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Right: Centered Authorized Signature -->
+                                    <div class="text-right space-y-0.5">
+                                        <div class="font-signature text-2xl sm:text-3xl text-navy-900 leading-none" id="preview-signature">
+                                            David Vance
+                                        </div>
+                                        <div class="w-28 sm:w-36 ml-auto border-t border-slate-400 my-1"></div>
+                                        <p class="text-[10px] font-bold text-slate-800 font-sans cert-text-block" id="preview-signatory">David Vance, CTO</p>
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: MANAGE CERTIFICATES ==================== -->
+        <section id="tab-manage" class="hidden space-y-5">
+            <!-- Search & Database Controls -->
+            <div class="bg-navy-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="relative w-full md:w-96">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+                    <input type="text" id="manage-search" placeholder="Search by recipient, course, or ID..."
+                        oninput="renderManageTable()"
+                        class="w-full bg-navy-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 text-xs">
+                </div>
+
+                <div class="flex items-center gap-2.5 w-full md:w-auto justify-end text-xs">
+                    <button onclick="exportCertificatesJSON()" class="px-3.5 py-2 bg-navy-950 hover:bg-slate-800 border border-slate-800 rounded-xl font-medium text-slate-300 flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-download text-blue-400"></i> Export DB
+                    </button>
+                    <label class="px-3.5 py-2 bg-navy-950 hover:bg-slate-800 border border-slate-800 rounded-xl font-medium text-slate-300 flex items-center gap-2 cursor-pointer transition-all">
+                        <i class="fa-solid fa-upload text-cyan-400"></i> Import DB
+                        <input type="file" id="import-json-file" accept=".json" class="hidden" onchange="importCertificatesJSON(event)">
+                    </label>
+                    <button onclick="clearAllCertificates()" class="px-3.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 rounded-xl font-medium text-rose-300 flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-trash-can"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="bg-navy-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-navy-950 border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                                <th class="py-3.5 px-4">Certificate ID</th>
+                                <th class="py-3.5 px-4">Recipient Name</th>
+                                <th class="py-3.5 px-4">Course / Program</th>
+                                <th class="py-3.5 px-4">Issue Date</th>
+                                <th class="py-3.5 px-4">Status</th>
+                                <th class="py-3.5 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manage-table-body" class="divide-y divide-slate-800/60 text-xs">
+                            <!-- JS dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="manage-empty-state" class="p-12 text-center hidden">
+                    <i class="fa-solid fa-folder-open text-4xl text-slate-700 mb-3 block"></i>
+                    <p class="text-slate-400 font-medium text-sm">No certificate records found.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: VERIFY PORTAL ==================== -->
+        <section id="tab-verify" class="hidden space-y-6 max-w-4xl mx-auto">
+            
+            <div class="bg-navy-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                <div class="text-center max-w-lg mx-auto space-y-1">
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center justify-center gap-2 font-tech">
+                        <i class="fa-solid fa-shield-halved text-cyan-400"></i> Official Verification Portal
+                    </h2>
+                    <p class="text-xs text-slate-400">Enter a unique certificate ID below to verify its authenticity instantly.</p>
+                </div>
+
+                <form onsubmit="handleManualVerifySubmit(event)" class="flex gap-2 max-w-xl mx-auto">
+                    <input type="text" id="verify-input-id" placeholder="Enter Certificate ID (e.g. CERT-8F9A2B1C)" required
+                        class="flex-1 bg-navy-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono text-xs">
+                    <button type="submit" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold px-6 py-3 rounded-xl transition-all flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-magnifying-glass"></i> Verify
+                    </button>
+                </form>
+            </div>
+
+            <!-- Dynamic Result -->
+            <div id="verification-result-container" class="hidden"></div>
+
+            <!-- Initial Prompt -->
+            <div id="verify-initial-prompt" class="bg-navy-900/50 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
+                <div class="w-16 h-16 bg-navy-950 border border-slate-800 rounded-full flex items-center justify-center mx-auto text-cyan-400 text-2xl shadow-inner">
+                    <i class="fa-solid fa-shield-check"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-200 font-tech">Awaiting Verification Request</h3>
+                <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Recipients and employers can verify any issued credential by entering the unique Certificate ID.
+                </p>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // ==========================================
+        // LOCAL STORAGE & STATE
+        // ==========================================
+        const STORAGE_KEY = 'certiverify_db_clean_v4';
+        let activeCertificates = [];
+        let isCustomIdMode = false;
+
+        const DEFAULT_ISSUER = 'AUTHORIZED ISSUING ORGANIZATION';
+
+        const SAMPLE_CERTIFICATES = [
+            {
+                id: 'CERT-8F9A2B1C',
+                recipient: 'Alex Mercer',
+                course: 'Full-Stack DevOps & Cloud Architecture',
+                issuer: '', // Empty defaults to DEFAULT_ISSUER
+                signatory: 'David Vance, CTO',
+                issueDate: '2026-09-18',
+                note: 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.',
+                status: 'VALID',
+                createdTimestamp: new Date().toISOString()
+            },
+            {
+                id: 'CERT-3K7L9P2M',
+                recipient: 'Sarah Connor',
+                course: 'Cybersecurity & Offensive System Defense',
+                issuer: 'Global Cyber Institute',
+                signatory: 'Alan Turing, Dean of Security',
+                issueDate: '2026-08-10',
+                note: 'Completed advanced penetration testing, cryptosystem analysis, and zero-trust framework implementation.',
+                status: 'VALID',
+                createdTimestamp: new Date().toISOString()
+            }
+        ];
+
+        // ==========================================
+        // INIT & ONLOAD
+        // ==========================================
+        window.onload = function() {
+            loadCertificatesFromStorage();
+
+            // Check URL parameters for direct verification redirects
+            const urlParams = new URLSearchParams(window.location.search);
+            const certIdParam = urlParams.get('certId') || window.location.hash.replace('#verify/', '');
+
+            if (certIdParam && certIdParam !== '#' && certIdParam !== '') {
+                switchTab('verify');
+                document.getElementById('verify-input-id').value = certIdParam;
+                runVerification(certIdParam);
+            } else {
+                fillSampleData();
+            }
+        };
+
+        function loadCertificatesFromStorage() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                try {
+                    activeCertificates = JSON.parse(raw);
+                } catch (e) {
+                    activeCertificates = [...SAMPLE_CERTIFICATES];
+                }
+            } else {
+                activeCertificates = [...SAMPLE_CERTIFICATES];
+                saveCertificatesToStorage();
+            }
+            updateBadgeCount();
+        }
+
+        function saveCertificatesToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(activeCertificates));
+            updateBadgeCount();
+        }
+
+        function updateBadgeCount() {
+            const badge = document.getElementById('cert-count-badge');
+            if (badge) badge.innerText = activeCertificates.length;
+        }
+
+        // ==========================================
+        // TAB SWITCHING
+        // ==========================================
+        function switchTab(tabName) {
+            ['issue', 'manage', 'verify'].forEach(t => {
+                const section = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`tab-${t}-btn`);
+                
+                if (t === tabName) {
+                    section.classList.remove('hidden');
+                    btn.className = 'px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center space-x-2 bg-blue-600 text-white shadow-md shadow-blue-600/30';
+                } else {
+                    section.classList.add('hidden');
+                    btn.className = 'px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center space-x-2';
+                }
+            });
+
+            if (tabName === 'manage') renderManageTable();
+        }
+
+        // ==========================================
+        // FORM & ID TOGGLE
+        // ==========================================
+        function generateUniqueCertId() {
+            const hex = Math.random().toString(16).substring(2, 10).toUpperCase();
+            return `CERT-${hex}`;
+        }
+
+        function toggleCustomId() {
+            const idInput = document.getElementById('input-cert-id');
+            const toggleBtn = document.getElementById('toggle-id-btn');
+
+            isCustomIdMode = !isCustomIdMode;
+
+            if (isCustomIdMode) {
+                idInput.readOnly = false;
+                idInput.classList.remove('cursor-not-allowed');
+                idInput.focus();
+                toggleBtn.innerText = 'Switch to Auto ID';
+            } else {
+                idInput.readOnly = true;
+                idInput.classList.add('cursor-not-allowed');
+                idInput.value = generateUniqueCertId();
+                toggleBtn.innerText = 'Switch to Custom ID';
+                updateLivePreview();
+            }
+        }
+
+        function getFormData() {
+            const rawIssuer = document.getElementById('input-issuer').value.trim();
+            return {
+                id: document.getElementById('input-cert-id').value.trim() || generateUniqueCertId(),
+                recipient: document.getElementById('input-recipient').value.trim() || 'Alex Mercer',
+                course: document.getElementById('input-course').value.trim() || 'Full-Stack DevOps & Cloud Architecture',
+                issuer: rawIssuer !== '' ? rawIssuer : DEFAULT_ISSUER,
+                signatory: document.getElementById('input-signatory').value.trim() || 'David Vance, CTO',
+                issueDate: document.getElementById('input-date').value || new Date().toISOString().split('T')[0],
+                note: document.getElementById('input-note').value.trim() || 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.',
+                status: 'VALID'
+            };
+        }
+
+        function updateLivePreview() {
+            const data = getFormData();
+
+            document.getElementById('preview-recipient').innerText = data.recipient;
+            document.getElementById('preview-course').innerText = data.course;
+            document.getElementById('preview-issuer').innerText = data.issuer.toUpperCase();
+            document.getElementById('preview-signatory').innerText = data.signatory;
+            
+            // Signature name
+            const signatureName = data.signatory.split(',')[0];
+            document.getElementById('preview-signature').innerText = signatureName;
+            
+            document.getElementById('preview-date').innerText = data.issueDate;
+            document.getElementById('preview-note').innerText = data.note;
+            document.getElementById('preview-cert-id').innerText = data.id;
+        }
+
+        function fillSampleData() {
+            document.getElementById('input-cert-id').value = generateUniqueCertId();
+            document.getElementById('input-recipient').value = 'Alex Mercer';
+            document.getElementById('input-course').value = 'Full-Stack DevOps & Cloud Architecture';
+            document.getElementById('input-issuer').value = ''; 
+            document.getElementById('input-signatory').value = 'David Vance, CTO';
+            document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('input-note').value = 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.';
+            
+            updateLivePreview();
+        }
+
+        function handleIssueFormSubmit(e) {
+            e.preventDefault();
+            const data = getFormData();
+            data.createdTimestamp = new Date().toISOString();
+
+            const index = activeCertificates.findIndex(c => c.id === data.id);
+            if (index >= 0) {
+                activeCertificates[index] = data;
+            } else {
+                activeCertificates.unshift(data);
+            }
+
+            saveCertificatesToStorage();
+            showToast(`Certificate ${data.id} successfully saved!`, 'success');
+
+            if (!isCustomIdMode) {
+                document.getElementById('input-cert-id').value = generateUniqueCertId();
+            }
+            updateLivePreview();
+        }
+
+       // Replace the old buildVerificationUrl function with this:
+function buildVerificationUrl(certId) {
+    const origin = window.location.origin;
+    const path = window.location.pathname;
+    const folder = path.substring(0, path.lastIndexOf('/'));
+    
+    // Generates link pointing directly to verify.html
+    return `${origin}${folder}/verify.html?certId=${encodeURIComponent(certId)}`;
+}
+
+        function copyGeneratedVerifyUrl() {
+            const certId = document.getElementById('preview-cert-id').innerText;
+            const url = buildVerificationUrl(certId);
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = url;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            showToast('Verification URL copied to clipboard!', 'info');
+        }
+
+        // ==========================================
+        // EXPORT PDF & PNG WITH ANTI-OVERLAP GUARDS
+        // ==========================================
+        async function downloadCertificatePDF() {
+            const previewEl = document.getElementById('certificate-preview-container');
+            showToast('Rendering crisp vector PDF...', 'info');
+
+            try {
+                // Ensure custom Google Fonts finish layout calculation to avoid shift/overlap
+                if (document.fonts && document.fonts.ready) {
+                    await document.fonts.ready;
+                }
+
+                const canvas = await html2canvas(previewEl, {
+                    scale: 3, // High DPI for crisp typography without pixelation
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 1200 // Lock capture viewport size for static line-height rendering
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                pdf.addImage(imgData, 'PNG', 0, 0, 297, 210);
+                const certId = document.getElementById('preview-cert-id').innerText;
+                const recipient = document.getElementById('preview-recipient').innerText.replace(/\s+/g, '_');
+                
+                pdf.save(`${recipient}_${certId}.pdf`);
+                showToast('PDF downloaded successfully!', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to export PDF.', 'error');
+            }
+        }
+
+        async function downloadCertificatePNG() {
+            const previewEl = document.getElementById('certificate-preview-container');
+            showToast('Rendering high-res PNG image...', 'info');
+
+            try {
+                if (document.fonts && document.fonts.ready) {
+                    await document.fonts.ready;
+                }
+
+                const canvas = await html2canvas(previewEl, {
+                    scale: 3,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 1200
+                });
+
+                const link = document.createElement('a');
+                const certId = document.getElementById('preview-cert-id').innerText;
+                const recipient = document.getElementById('preview-recipient').innerText.replace(/\s+/g, '_');
+                
+                link.download = `${recipient}_${certId}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('PNG image downloaded!', 'success');
+            } catch (err) {
+                showToast('Failed to export image.', 'error');
+            }
+        }
+
+        // ==========================================
+        // MANAGEMENT TABLE LOGIC
+        // ==========================================
+        function renderManageTable() {
+            const tbody = document.getElementById('manage-table-body');
+            const emptyState = document.getElementById('manage-empty-state');
+            const searchVal = document.getElementById('manage-search').value.toLowerCase();
+
+            tbody.innerHTML = '';
+
+            const filtered = activeCertificates.filter(c => 
+                c.id.toLowerCase().includes(searchVal) ||
+                c.recipient.toLowerCase().includes(searchVal) ||
+                c.course.toLowerCase().includes(searchVal) ||
+                (c.issuer || DEFAULT_ISSUER).toLowerCase().includes(searchVal)
+            );
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(cert => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-navy-950/60 transition-colors';
+
+                const isValid = cert.status === 'VALID';
+                const statusBadge = isValid
+                    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/60"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Valid</span>`
+                    : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-950 text-rose-400 border border-rose-800/60"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Revoked</span>`;
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-xs font-bold text-cyan-400">${cert.id}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-100">${escapeHtml(cert.recipient)}</td>
+                    <td class="py-3 px-4 text-slate-300 max-w-xs truncate">${escapeHtml(cert.course)}</td>
+                    <td class="py-3 px-4 text-slate-400 text-xs font-mono">${cert.issueDate}</td>
+                    <td class="py-3 px-4">${statusBadge}</td>
+                    <td class="py-3 px-4 text-right space-x-1">
+                        <button onclick="copyVerifyUrlForId('${cert.id}')" title="Copy Link" class="text-slate-400 hover:text-cyan-400 p-1.5">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                        <button onclick="testVerifyId('${cert.id}')" title="Verify Portal" class="text-slate-400 hover:text-blue-400 p-1.5">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </button>
+                        <button onclick="toggleCertStatus('${cert.id}')" title="${isValid ? 'Revoke' : 'Activate'}" class="text-slate-400 hover:text-amber-400 p-1.5">
+                            <i class="fa-solid ${isValid ? 'fa-ban text-rose-400' : 'fa-circle-check text-emerald-400'}"></i>
+                        </button>
+                        <button onclick="deleteCert('${cert.id}')" title="Delete" class="text-slate-400 hover:text-rose-400 p-1.5">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleCertStatus(id) {
+            const cert = activeCertificates.find(c => c.id === id);
+            if (cert) {
+                cert.status = cert.status === 'VALID' ? 'REVOKED' : 'VALID';
+                saveCertificatesToStorage();
+                renderManageTable();
+                showToast(`Certificate status updated to ${cert.status}`, 'info');
+            }
+        }
+
+        function deleteCert(id) {
+            if (confirm(`Are you sure you want to delete ${id}?`)) {
+                activeCertificates = activeCertificates.filter(c => c.id !== id);
+                saveCertificatesToStorage();
+                renderManageTable();
+                showToast('Record deleted.', 'info');
+            }
+        }
+
+        function copyVerifyUrlForId(id) {
+            const url = buildVerificationUrl(id);
+            const textarea = document.createElement('textarea');
+            textarea.value = url;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast(`Copied verification link for ${id}`, 'info');
+        }
+
+        function testVerifyId(id) {
+            switchTab('verify');
+            document.getElementById('verify-input-id').value = id;
+            runVerification(id);
+        }
+
+        // ==========================================
+        // VERIFICATION ENGINE
+        // ==========================================
+        function handleManualVerifySubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('verify-input-id').value.trim();
+            if (id) runVerification(id);
+        }
+
+        function runVerification(certId) {
+            const container = document.getElementById('verification-result-container');
+            const prompt = document.getElementById('verify-initial-prompt');
+            prompt.classList.add('hidden');
+            container.classList.remove('hidden');
+
+            const cert = activeCertificates.find(c => c.id.toUpperCase() === certId.toUpperCase());
+            const now = new Date().toLocaleString();
+
+            if (!cert) {
+                container.innerHTML = `
+                    <div class="bg-navy-900 border border-rose-900/60 rounded-2xl p-6 shadow-2xl space-y-4">
+                        <div class="bg-rose-950/40 border border-rose-800/80 rounded-xl p-5 flex items-center gap-4 text-rose-300">
+                            <div class="w-12 h-12 rounded-full bg-rose-900/80 flex items-center justify-center text-rose-400 text-xl flex-shrink-0">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-rose-200 font-tech uppercase">UNAUTHENTICATED OR INVALID ID</h3>
+                                <p class="text-xs text-rose-300/80">No record found matching certificate ID <span class="font-mono font-bold uppercase underline">${escapeHtml(certId)}</span> in global storage.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (cert.status === 'REVOKED') {
+                container.innerHTML = `
+                    <div class="bg-navy-900 border border-amber-900/60 rounded-2xl p-6 shadow-2xl space-y-4">
+                        <div class="bg-amber-950/40 border border-amber-800/80 rounded-xl p-5 flex items-center gap-4 text-amber-300">
+                            <div class="w-12 h-12 rounded-full bg-amber-900/80 flex items-center justify-center text-amber-400 text-xl flex-shrink-0">
+                                <i class="fa-solid fa-ban"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-amber-200 font-tech uppercase">REVOKED CREDENTIAL</h3>
+                                <p class="text-xs text-amber-300/80">This certificate was originally valid but has been explicitly marked as revoked by the issuer.</p>
+                            </div>
+                        </div>
+                        ${renderVerifiedDetailsCard(cert, now)}
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="bg-navy-900 border border-blue-900/60 rounded-2xl p-6 shadow-2xl space-y-5">
+                    <div class="bg-blue-950/40 border border-blue-800/80 rounded-xl p-5 flex items-center gap-4 text-blue-300">
+                        <div class="w-12 h-12 rounded-full bg-blue-900/80 border border-blue-700 flex items-center justify-center text-cyan-300 text-xl flex-shrink-0 shadow-lg">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-base font-bold text-blue-100 font-tech">AUTHENTICATED & VALID CERTIFICATE</h3>
+                                <span class="bg-blue-900/80 text-cyan-300 border border-blue-700 text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase">Verified</span>
+                            </div>
+                            <p class="text-xs text-blue-300/80">This digital credential is active and authenticated in official registry logs.</p>
+                        </div>
+                    </div>
+                    ${renderVerifiedDetailsCard(cert, now)}
+                </div>
+            `;
+        }
+
+        function renderVerifiedDetailsCard(cert, timestamp) {
+            const displayIssuer = cert.issuer && cert.issuer.trim() !== '' ? cert.issuer : DEFAULT_ISSUER;
+            return `
+                <div class="bg-navy-950/80 border border-slate-800 rounded-xl p-5 space-y-4 text-xs">
+                    <div class="border-b border-slate-800 pb-3 flex justify-between items-center">
+                        <span class="font-bold text-slate-400 uppercase tracking-widest font-mono text-[10px]">Verified Record Snapshot</span>
+                        <span class="font-mono text-xs text-cyan-400 font-bold bg-navy-900 px-2.5 py-1 rounded border border-slate-800">${cert.id}</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-0.5">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Recipient Name</span>
+                            <p class="text-base font-bold text-slate-100 font-tech">${escapeHtml(cert.recipient)}</p>
+                        </div>
+
+                        <div class="space-y-0.5">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Certified Course / Skill</span>
+                            <p class="text-sm font-bold text-blue-400 font-tech">${escapeHtml(cert.course)}</p>
+                        </div>
+
+                        <div class="space-y-0.5">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Issuing Institution</span>
+                            <p class="text-xs font-semibold text-slate-300">${escapeHtml(displayIssuer)}</p>
+                        </div>
+
+                        <div class="space-y-0.5">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Authorized Signatory</span>
+                            <p class="text-xs font-semibold text-slate-300">${escapeHtml(cert.signatory)}</p>
+                        </div>
+
+                        <div class="space-y-0.5">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Issue Date</span>
+                            <p class="text-xs font-mono text-slate-300">${cert.issueDate}</p>
+                        </div>
+
+                        <div class="space-y-0.5">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Status</span>
+                            <p class="text-xs font-mono font-bold ${cert.status === 'VALID' ? 'text-emerald-400' : 'text-rose-400'}">${cert.status}</p>
+                        </div>
+                    </div>
+
+                    ${cert.note ? `
+                        <div class="pt-3 border-t border-slate-800 space-y-1">
+                            <span class="text-[10px] font-medium text-slate-500 uppercase">Achievement Statement</span>
+                            <p class="text-xs text-slate-300 bg-navy-900 p-3 rounded-lg border border-slate-800/80 leading-relaxed">${escapeHtml(cert.note)}</p>
+                        </div>
+                    ` : ''}
+
+                    <div class="pt-3 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-500 gap-2 font-mono">
+                        <span>Timestamp: <strong class="text-slate-400">${timestamp}</strong></span>
+                        <span class="text-slate-600">HASH: SHA256-${cert.id.toLowerCase()}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // IMPORT/EXPORT & TOAST UTILS
+        // ==========================================
+        function exportCertificatesJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeCertificates, null, 2));
+            const anchor = document.createElement('a');
+            anchor.setAttribute("href", dataStr);
+            anchor.setAttribute("download", `certiverify_db_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            showToast('Database exported successfully', 'success');
+        }
+
+        function importCertificatesJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        activeCertificates = imported;
+                        saveCertificatesToStorage();
+                        renderManageTable();
+                        showToast(`Imported ${imported.length} records!`, 'success');
+                    }
+                } catch (err) {
+                    showToast('Invalid JSON database format.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function clearAllCertificates() {
+            if (confirm('Clear all certificate records from local database?')) {
+                activeCertificates = [];
+                saveCertificatesToStorage();
+                renderManageTable();
+                showToast('All records cleared.', 'info');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let bgClass = 'bg-navy-900 border-slate-700 text-slate-200';
+            let icon = 'fa-circle-info text-blue-400';
+
+            if (type === 'success') {
+                bgClass = 'bg-navy-900 border-emerald-800 text-emerald-200';
+                icon = 'fa-circle-check text-emerald-400';
+            } else if (type === 'error') {
+                bgClass = 'bg-navy-900 border-rose-800 text-rose-200';
+                icon = 'fa-circle-xmark text-rose-400';
+            }
+
+            toast.className = `${bgClass} border px-4 py-3 rounded-xl shadow-2xl text-xs font-medium flex items-center gap-3 transform transition-all duration-300 pointer-events-auto max-w-sm`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span>${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
