@@ -57,7 +57,7 @@
     <!-- Main Verification Section -->
     <main class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         
-        <!-- Verification Input Card -->
+        <!-- Search Input Card -->
         <div class="bg-navy-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
             <div class="text-center max-w-lg mx-auto space-y-1">
                 <h1 class="text-2xl font-bold text-slate-100 flex items-center justify-center gap-2 font-tech">
@@ -75,7 +75,7 @@
             </form>
         </div>
 
-        <!-- Dynamic Verification Output -->
+        <!-- Dynamic Output Container -->
         <div id="verification-result-container" class="hidden"></div>
 
         <!-- Initial Placeholder Prompt -->
@@ -85,18 +85,22 @@
             </div>
             <h3 class="text-base font-bold text-slate-200 font-tech">Awaiting Verification Request</h3>
             <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                Recipients and employers can verify any issued credential by entering the unique Certificate ID above or following a direct URL link.
+                Recipients and employers can verify any issued credential by entering the unique Certificate ID above or following a direct link.
             </p>
         </div>
 
     </main>
 
     <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const JSONBIN_BIN_ID = '6aace4c3ac6210605adb586f'; // Replace with your actual JSONBin Bin ID
         const STORAGE_KEY = 'certiverify_db_clean_v4';
         const DEFAULT_ISSUER = 'AUTHORIZED ISSUING ORGANIZATION';
 
         window.onload = function() {
-            // Automatically grab certId if present in URL parameter (e.g. verify.html?certId=CERT-12345)
+            // Read ?certId= parameter from URL if present
             const urlParams = new URLSearchParams(window.location.search);
             const certIdParam = urlParams.get('certId');
 
@@ -106,7 +110,27 @@
             }
         };
 
-       getCertificatesFromStorage
+        // Fetch live certificates directly from JSONBin Cloud Database
+        async function getCertificatesFromStorage() {
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+                    headers: {
+                        // If your JSONBin Bin is set to private, uncomment the line below:
+                        // 'X-Master-Key': 'YOUR_MASTER_KEY'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch cloud records');
+                
+                const data = await response.json();
+                return data.record || [];
+            } catch (err) {
+                console.warn("JSONBin Fetch Warning, falling back to local storage:", err);
+                // Fallback to browser storage if offline or request fails
+                const raw = localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) : [];
+            }
+        }
 
         function handleManualVerifySubmit(e) {
             e.preventDefault();
@@ -114,14 +138,23 @@
             if (id) runVerification(id);
         }
 
-        function runVerification(certId) {
+        async function runVerification(certId) {
             const container = document.getElementById('verification-result-container');
             const prompt = document.getElementById('verify-initial-prompt');
             
             prompt.classList.add('hidden');
             container.classList.remove('hidden');
 
-            const activeCertificates = getCertificatesFromStorage();
+            // Show Loading State while fetching live database
+            container.innerHTML = `
+                <div class="bg-navy-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
+                    <i class="fa-solid fa-spinner fa-spin text-cyan-400 text-2xl"></i>
+                    <p class="text-xs font-mono">Querying global registry database...</p>
+                </div>
+            `;
+
+            // Asynchronously fetch certificate list from cloud
+            const activeCertificates = await getCertificatesFromStorage();
             const cert = activeCertificates.find(c => c.id.toUpperCase() === certId.toUpperCase());
             const timestamp = new Date().toLocaleString();
 
@@ -134,7 +167,7 @@
                             </div>
                             <div>
                                 <h3 class="text-base font-bold text-rose-200 font-tech uppercase">UNAUTHENTICATED OR INVALID ID</h3>
-                                <p class="text-xs text-rose-300/80">No record found matching certificate ID <span class="font-mono font-bold uppercase underline">${escapeHtml(certId)}</span> in the database.</p>
+                                <p class="text-xs text-rose-300/80">No record found matching certificate ID <span class="font-mono font-bold uppercase underline">${escapeHtml(certId)}</span> in global registry.</p>
                             </div>
                         </div>
                     </div>
