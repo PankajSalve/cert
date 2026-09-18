@@ -622,8 +622,8 @@ function saveCertificatesToStorage() {
 
         function fillSampleData() {
             document.getElementById('input-cert-id').value = generateUniqueCertId();
-            document.getElementById('input-recipient').value = 'student name';
-            document.getElementById('input-course').value = 'Course';
+            document.getElementById('input-recipient').value = '';
+            document.getElementById('input-course').value = '';
             document.getElementById('input-issuer').value = ''; 
             document.getElementById('input-signatory').value = 'Salve P.V.';
             document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
