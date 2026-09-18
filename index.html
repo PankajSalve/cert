@@ -229,7 +229,7 @@
                             </div>
                             <div>
                                 <label class="block font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Authorized Signatory</label>
-                                <input type="text" id="input-signatory" placeholder="e.g. David Vance, CTO"
+                                <input type="text" id="input-signatory" placeholder="e.g. Salve P.V."
                                     class="w-full bg-navy-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500 transition-all"
                                     oninput="updateLivePreview()">
                             </div>
@@ -353,7 +353,7 @@
                                             David Vance
                                         </div>
                                         <div class="w-28 sm:w-36 ml-auto border-t border-slate-400 my-1"></div>
-                                        <p class="text-[10px] font-bold text-slate-800 font-sans cert-text-block" id="preview-signatory">David Vance, CTO</p>
+                                        <p class="text-[10px] font-bold text-slate-800 font-sans cert-text-block" id="preview-signatory">Salve P.V.</p>
                                     </div>
 
                                 </div>
@@ -468,30 +468,7 @@
 
         const DEFAULT_ISSUER = 'AUTHORIZED ISSUING ORGANIZATION';
 
-        const SAMPLE_CERTIFICATES = [
-            {
-                id: 'CERT-8F9A2B1C',
-                recipient: 'Alex Mercer',
-                course: 'Full-Stack DevOps & Cloud Architecture',
-                issuer: '', // Empty defaults to DEFAULT_ISSUER
-                signatory: 'David Vance, CTO',
-                issueDate: '2026-09-18',
-                note: 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.',
-                status: 'VALID',
-                createdTimestamp: new Date().toISOString()
-            },
-            {
-                id: 'CERT-3K7L9P2M',
-                recipient: 'Sarah Connor',
-                course: 'Cybersecurity & Offensive System Defense',
-                issuer: 'Global Cyber Institute',
-                signatory: 'Alan Turing, Dean of Security',
-                issueDate: '2026-08-10',
-                note: 'Completed advanced penetration testing, cryptosystem analysis, and zero-trust framework implementation.',
-                status: 'VALID',
-                createdTimestamp: new Date().toISOString()
-            }
-        ];
+        const SAMPLE_CERTIFICATES = [        ];
 
         // ==========================================
         // INIT & ONLOAD
@@ -619,7 +596,7 @@ function saveCertificatesToStorage() {
                 recipient: document.getElementById('input-recipient').value.trim() || 'Alex Mercer',
                 course: document.getElementById('input-course').value.trim() || 'Full-Stack DevOps & Cloud Architecture',
                 issuer: rawIssuer !== '' ? rawIssuer : DEFAULT_ISSUER,
-                signatory: document.getElementById('input-signatory').value.trim() || 'David Vance, CTO',
+                signatory: document.getElementById('input-signatory').value.trim() || 'Salve P.V.',
                 issueDate: document.getElementById('input-date').value || new Date().toISOString().split('T')[0],
                 note: document.getElementById('input-note').value.trim() || 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.',
                 status: 'VALID'
@@ -645,10 +622,10 @@ function saveCertificatesToStorage() {
 
         function fillSampleData() {
             document.getElementById('input-cert-id').value = generateUniqueCertId();
-            document.getElementById('input-recipient').value = 'Alex Mercer';
-            document.getElementById('input-course').value = 'Full-Stack DevOps & Cloud Architecture';
+            document.getElementById('input-recipient').value = 'student name';
+            document.getElementById('input-course').value = 'Course';
             document.getElementById('input-issuer').value = ''; 
-            document.getElementById('input-signatory').value = 'David Vance, CTO';
+            document.getElementById('input-signatory').value = 'Salve P.V.';
             document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('input-note').value = 'For demonstrating expertise in Kubernetes deployment, cloud security, and automated CI/CD pipelines.';
             
